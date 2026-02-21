@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>Photo Album Flip Book</title>
+<title>Single Page Photo Album</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,8 +11,8 @@
 
 <style>
 :root{
-  --w: min(92vw, 980px);
-  --h: min(78vh, 560px);
+  --w: min(92vw, 560px);
+  --h: min(78vh, 720px);
   --radius: 18px;
 }
 
@@ -53,6 +53,8 @@ body{
   padding:10px 15px;
   border-radius:50px;
   backdrop-filter: blur(6px);
+  display:flex;
+  gap:10px;
 }
 button{
   padding:8px 15px;
@@ -63,96 +65,97 @@ button{
 }
 button:hover{ opacity:.85 }
 
-/* Book */
+/* Stage */
 .stage{
   width:var(--w);
   height:var(--h);
-  perspective:2000px;
+  perspective:1400px;
 
-  /* ✅ swipe/drag ke liye */
   touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
+  user-select:none;
+  -webkit-user-select:none;
 }
 
+/* Book (single page) */
 .book{
   width:100%;
   height:100%;
   position:relative;
-  transform-style:preserve-3d;
   border-radius:var(--radius);
   box-shadow:0 40px 60px rgba(0,0,0,.6);
-}
-
-/* Album cover */
-.cover{
-  position:absolute;
-  inset:0;
-  background:linear-gradient(135deg,#3a2a1c,#2b1b0f);
-  border-radius:var(--radius);
-  box-shadow:inset 0 0 0 3px rgba(0,0,0,.5);
-  transform:translateZ(-4px);
-}
-
-/* Spread */
-.pages{
-  position:absolute;
-  inset:25px;
-  border-radius:14px;
   overflow:hidden;
   transform-style:preserve-3d;
 }
 
-.baseSpread{
+/* Cover look */
+.coverFrame{
   position:absolute;
   inset:0;
-  display:flex;
+  background:linear-gradient(135deg,#3a2a1c,#2b1b0f);
+}
+.coverFrame::after{
+  content:"";
+  position:absolute;
+  inset:14px;
+  border-radius:calc(var(--radius) - 6px);
+  background:rgba(255,255,255,.08);
+  box-shadow:
+    inset 0 0 0 2px rgba(0,0,0,.45),
+    inset 0 0 30px rgba(0,0,0,.35);
 }
 
-/* 2 page halves */
-.half{
-  width:50%;
+/* Viewport */
+.viewport{
+  position:absolute;
+  inset:22px;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.35);
+}
+
+/* Slider pages */
+.track{
+  width:100%;
   height:100%;
-  background-size:200% 100%;
-  background-repeat:no-repeat;
+  position:relative;
+  background:rgba(0,0,0,.2);
 }
 
-.left{ background-position:left center; }
-.right{ background-position:right center; }
-
-/* Flipping sheet */
-.sheet{
+/* Two layers for animation */
+.page{
   position:absolute;
   inset:0;
-  transform-origin:left center;
-  transform-style:preserve-3d;
-  will-change: transform;
+  background-size:cover;
+  background-position:center;
+  transform:translateX(0);
+  will-change:transform;
 }
 
-.leaf{
-  position:absolute;
-  left:50%;
-  width:50%;
-  height:100%;
-  transform-origin:left center;
-  transform-style:preserve-3d;
-}
-
-.side{
+/* subtle gloss */
+.page::after{
+  content:"";
   position:absolute;
   inset:0;
-  backface-visibility:hidden;
-  background-size:200% 100%;
-  background-repeat:no-repeat;
-}
-.side.front{ background-position:right center; }
-.side.back{
-  transform:rotateY(180deg);
-  background-position:left center;
+  background:
+    linear-gradient(120deg, rgba(255,255,255,.12), transparent 45%),
+    linear-gradient(0deg, rgba(0,0,0,.25), transparent 45%);
+  pointer-events:none;
 }
 
-.sheet.anim{
-  transition:transform .6s cubic-bezier(.2,.8,.2,1);
+.page.anim{
+  transition: transform .45s cubic-bezier(.2,.8,.2,1);
+}
+
+/* small hint text */
+.hint{
+  position:fixed;
+  bottom:16px;
+  left:0;
+  right:0;
+  text-align:center;
+  color:rgba(255,255,255,.85);
+  font-size:14px;
+  text-shadow:0 6px 18px rgba(0,0,0,.65);
 }
 </style>
 </head>
@@ -168,204 +171,251 @@ button:hover{ opacity:.85 }
 
 <div class="stage" id="stage">
   <div class="book">
-    <div class="cover"></div>
+    <div class="coverFrame"></div>
 
-    <div class="pages" id="pages">
-      <div class="baseSpread">
-        <div class="half left" id="leftPage"></div>
-        <div class="half right" id="rightPage"></div>
+    <div class="viewport">
+      <div class="track" id="track">
+        <div class="page" id="pageA"></div>
+        <div class="page" id="pageB"></div>
       </div>
     </div>
   </div>
 </div>
 
+<div class="hint">👆 Swipe / Drag left-right • Buttons also work</div>
+
 <script>
-/* 🖼️ Your images (1 image = 1 spread) */
+/* ✅ Single page = single photo */
 const photos = [
   "a.jpg",
+  "b.jpg",
+  "c.jpg",
   "n.jpg",
-  "m.jpg"
+  "m.jpg",
+  "e.jpg",
+  "f.jph",
+  "g.jph"
 ];
 
 const stage = document.getElementById("stage");
-const pagesEl = document.getElementById("pages");
-const leftPage = document.getElementById("leftPage");
-const rightPage = document.getElementById("rightPage");
+const pageA = document.getElementById("pageA");
+const pageB = document.getElementById("pageB");
 
-let current = 0;
-const sheets = [];
+let index = 0;
 let isAnimating = false;
 
-/* Render base spread */
-function renderSpread(i){
-  leftPage.style.backgroundImage = `url(${photos[i]})`;
-  rightPage.style.backgroundImage = `url(${photos[i]})`;
+/* pages: active + incoming (double-buffer) */
+let active = pageA;
+let incoming = pageB;
+
+function setBg(el, i){
+  el.style.backgroundImage = `url(${photos[i]})`;
 }
 
-/* Create flip sheets */
-for(let i=0;i<photos.length;i++){
-  const sheet = document.createElement("div");
-  sheet.className="sheet";
-  sheet.style.zIndex=1000-i;
-
-  const leaf=document.createElement("div");
-  leaf.className="leaf";
-
-  const front=document.createElement("div");
-  front.className="side front";
-  front.style.backgroundImage=`url(${photos[i]})`;
-
-  const back=document.createElement("div");
-  back.className="side back";
-  back.style.backgroundImage=`url(${photos[i+1]||photos[i]})`;
-
-  leaf.appendChild(front);
-  leaf.appendChild(back);
-  sheet.appendChild(leaf);
-
-  pagesEl.appendChild(sheet);
-  sheets.push(sheet);
+function swapPages(){
+  const temp = active;
+  active = incoming;
+  incoming = temp;
 }
 
-function setAngle(i, angle, anim=false){
-  if(!sheets[i]) return;
-  sheets[i].classList.toggle("anim", anim);
-  sheets[i].style.transform = `rotateY(${angle}deg)`;
-}
+/* init */
+setBg(active, index);
+incoming.style.transform = "translateX(100%)";
 
-/* ✅ Next / Prev actions */
-function goNext(){
+/* core slide animation */
+function slideTo(newIndex, dir){ // dir: -1 prev (slide right), +1 next (slide left)
   if(isAnimating) return;
-  if(current >= photos.length - 1) return;
+  if(newIndex < 0 || newIndex >= photos.length) return;
 
   isAnimating = true;
-  setAngle(current, -180, true);
 
-  // transition complete ke baad state update
+  // prepare incoming offscreen
+  setBg(incoming, newIndex);
+  incoming.classList.remove("anim");
+  active.classList.remove("anim");
+
+  incoming.style.transform = dir === 1 ? "translateX(100%)" : "translateX(-100%)";
+
+  // force reflow
+  incoming.offsetHeight;
+
+  // animate
+  incoming.classList.add("anim");
+  active.classList.add("anim");
+
+  incoming.style.transform = "translateX(0)";
+  active.style.transform = dir === 1 ? "translateX(-100%)" : "translateX(100%)";
+
   const done = () => {
-    sheets[current].removeEventListener("transitionend", done);
-    current++;
-    renderSpread(current);
+    active.removeEventListener("transitionend", done);
+
+    // finalize
+    index = newIndex;
+    active.classList.remove("anim");
+    incoming.classList.remove("anim");
+
+    // active becomes the one at center
+    swapPages();
+
+    // reset the offscreen page for next time
+    incoming.style.transform = "translateX(100%)";
+
     isAnimating = false;
   };
-  sheets[current].addEventListener("transitionend", done, { once:true });
+
+  active.addEventListener("transitionend", done, { once:true });
+}
+
+function goNext(){
+  if(index >= photos.length - 1) return;
+  slideTo(index + 1, 1);
 }
 
 function goPrev(){
-  if(isAnimating) return;
-  if(current <= 0) return;
-
-  isAnimating = true;
-  current--;
-  setAngle(current, 0, true);
-
-  const done = () => {
-    sheets[current].removeEventListener("transitionend", done);
-    renderSpread(current);
-    isAnimating = false;
-  };
-  sheets[current].addEventListener("transitionend", done, { once:true });
+  if(index <= 0) return;
+  slideTo(index - 1, -1);
 }
 
 /* Buttons */
 document.getElementById("nextBtn").onclick = goNext;
 document.getElementById("prevBtn").onclick = goPrev;
 
-/* ✅ Swipe / Drag Support (Touch + Mouse using Pointer Events) */
+/* ✅ Swipe / Drag (Pointer Events) */
 let dragging = false;
 let startX = 0;
 let lastX = 0;
 
 const SWIPE_THRESHOLD = 70;   // px
-const EDGE_GUARD = 0.0;       // future use if needed
+const DRAG_LIMIT = 260;       // px max considered
 
 function onPointerDown(e){
   if(isAnimating) return;
-
-  // Left click only for mouse
   if(e.pointerType === "mouse" && e.button !== 0) return;
 
   dragging = true;
   startX = e.clientX;
   lastX = startX;
 
-  // Capture pointer so move works even if pointer leaves element
   stage.setPointerCapture?.(e.pointerId);
 
-  // Disable transition during live drag
-  if(sheets[current]) sheets[current].classList.remove("anim");
-  if(current > 0 && sheets[current-1]) sheets[current-1].classList.remove("anim");
+  active.classList.remove("anim");
+  incoming.classList.remove("anim");
+
+  incoming.style.transform = "translateX(100%)";
 }
 
 function onPointerMove(e){
   if(!dragging || isAnimating) return;
+
   lastX = e.clientX;
-
   const dx = lastX - startX;
+  const clamped = Math.max(-DRAG_LIMIT, Math.min(DRAG_LIMIT, dx));
 
-  // dx < 0 => next (flip current sheet)
-  if(dx < 0 && current < photos.length - 1){
-    const progress = Math.max(-1, Math.min(0, dx / 260)); // -1..0
-    const angle = progress * 180; // 0..-180
-    setAngle(current, angle, false);
+  // dx < 0 => next
+  if(clamped < 0){
+    if(index >= photos.length - 1) return;
+
+    setBg(incoming, index + 1);
+
+    active.style.transform = `translateX(${clamped}px)`;
+    incoming.style.transform = `translateX(${clamped + stage.clientWidth}px)`;
   }
 
-  // dx > 0 => prev (unflip previous sheet)
-  if(dx > 0 && current > 0){
-    const progress = Math.max(0, Math.min(1, dx / 260)); // 0..1
-    const angle = -180 + (progress * 180); // -180..0
-    setAngle(current-1, angle, false);
+  // dx > 0 => prev
+  if(clamped > 0){
+    if(index <= 0) return;
+
+    setBg(incoming, index - 1);
+
+    active.style.transform = `translateX(${clamped}px)`;
+    incoming.style.transform = `translateX(${clamped - stage.clientWidth}px)`;
   }
 }
 
-function onPointerUp(e){
+function cancelDrag(){
+  active.classList.add("anim");
+  incoming.classList.add("anim");
+
+  active.style.transform = "translateX(0)";
+  incoming.style.transform = "translateX(100%)";
+
+  const cleanup = () => {
+    active.removeEventListener("transitionend", cleanup);
+    active.classList.remove("anim");
+    incoming.classList.remove("anim");
+  };
+  active.addEventListener("transitionend", cleanup, { once:true });
+}
+
+function commitNext(){
+  active.classList.add("anim");
+  incoming.classList.add("anim");
+
+  incoming.style.transform = "translateX(0)";
+  active.style.transform = `translateX(${-stage.clientWidth}px)`;
+
+  const done = () => {
+    active.removeEventListener("transitionend", done);
+
+    index++;
+    swapPages();
+
+    active.classList.remove("anim");
+    incoming.classList.remove("anim");
+
+    active.style.transform = "translateX(0)";
+    incoming.style.transform = "translateX(100%)";
+
+    isAnimating = false;
+  };
+  active.addEventListener("transitionend", done, { once:true });
+}
+
+function commitPrev(){
+  active.classList.add("anim");
+  incoming.classList.add("anim");
+
+  incoming.style.transform = "translateX(0)";
+  active.style.transform = `translateX(${stage.clientWidth}px)`;
+
+  const done = () => {
+    active.removeEventListener("transitionend", done);
+
+    index--;
+    swapPages();
+
+    active.classList.remove("anim");
+    incoming.classList.remove("anim");
+
+    active.style.transform = "translateX(0)";
+    incoming.style.transform = "translateX(100%)";
+
+    isAnimating = false;
+  };
+  active.addEventListener("transitionend", done, { once:true });
+}
+
+function onPointerUp(){
   if(!dragging || isAnimating) return;
   dragging = false;
 
   const dx = lastX - startX;
 
-  // Decide based on threshold
-  if(dx <= -SWIPE_THRESHOLD){
-    // commit next
-    if(current < photos.length - 1){
-      // animate to -180
-      setAngle(current, -180, true);
-      isAnimating = true;
-
-      const done = () => {
-        sheets[current].removeEventListener("transitionend", done);
-        current++;
-        renderSpread(current);
-        isAnimating = false;
-      };
-      sheets[current].addEventListener("transitionend", done, { once:true });
-      return;
-    }
+  if(dx <= -SWIPE_THRESHOLD && index < photos.length - 1){
+    isAnimating = true;
+    setBg(incoming, index + 1);
+    commitNext();
+    return;
   }
 
-  if(dx >= SWIPE_THRESHOLD){
-    // commit prev
-    if(current > 0){
-      setAngle(current-1, 0, true);
-      isAnimating = true;
-
-      const done = () => {
-        sheets[current-1].removeEventListener("transitionend", done);
-        renderSpread(current);
-        isAnimating = false;
-      };
-      sheets[current-1].addEventListener("transitionend", done, { once:true });
-      return;
-    }
+  if(dx >= SWIPE_THRESHOLD && index > 0){
+    isAnimating = true;
+    setBg(incoming, index - 1);
+    commitPrev();
+    return;
   }
 
-  // Otherwise cancel: snap back
-  if(dx < 0 && current < photos.length - 1){
-    setAngle(current, 0, true);
-  }
-  if(dx > 0 && current > 0){
-    setAngle(current-1, -180, true);
-  }
+  cancelDrag();
 }
 
 stage.addEventListener("pointerdown", onPointerDown);
@@ -373,8 +423,10 @@ stage.addEventListener("pointermove", onPointerMove);
 stage.addEventListener("pointerup", onPointerUp);
 stage.addEventListener("pointercancel", onPointerUp);
 
-/* Initial */
-renderSpread(0);
+window.addEventListener("resize", () => {
+  active.style.transform = "translateX(0)";
+  incoming.style.transform = "translateX(100%)";
+});
 </script>
 
 </body>
