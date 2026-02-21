@@ -14,7 +14,7 @@
   --radius: 18px;
 }
 
-*{box-sizing:border-box}
+*{ box-sizing:border-box; }
 
 body{
   margin:0;
@@ -23,7 +23,10 @@ body{
   place-items:center;
   font-family:"Hind", sans-serif;
   overflow:hidden;
-  background:#2b1b0f;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,.08), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(255,255,255,.05), transparent 40%),
+    linear-gradient(135deg,#3a2a1c,#2b1b0f);
 }
 
 /* controls */
@@ -34,27 +37,34 @@ body{
   right:0;
   display:flex;
   justify-content:center;
+  z-index:50;
 }
-
 .pill{
-  background:rgba(0,0,0,.4);
-  padding:10px 15px;
-  border-radius:50px;
+  background:rgba(0,0,0,.45);
+  padding:10px 12px;
+  border-radius:999px;
+  display:flex;
+  gap:10px;
+  backdrop-filter: blur(8px);
+  box-shadow:0 12px 30px rgba(0,0,0,.25);
 }
-
 button{
-  padding:8px 15px;
+  padding:8px 14px;
   border:none;
-  border-radius:30px;
+  border-radius:999px;
   cursor:pointer;
-  font-weight:bold;
+  font-weight:700;
 }
+button:active{ transform:scale(.98); }
 
 /* stage */
 .stage{
   width:var(--w);
   height:var(--h);
   perspective:1400px;
+  touch-action: pan-y;          /* allow vertical scroll, block horizontal by us */
+  user-select:none;
+  -webkit-user-select:none;
 }
 
 /* book */
@@ -64,20 +74,7 @@ button{
   position:relative;
   border-radius:var(--radius);
   overflow:hidden;
-}
-
-/* viewport */
-.viewport{
-  position:absolute;
-  inset:0;
-  overflow:hidden;
-}
-
-/* track */
-.track{
-  width:100%;
-  height:100%;
-  position:relative;
+  box-shadow:0 40px 60px rgba(0,0,0,.55);
   background:#000;
 }
 
@@ -88,18 +85,25 @@ button{
   display:flex;
   justify-content:center;
   align-items:center;
-  background:black;
+  background:#000;
+  will-change: transform;
+  transform: translateX(0);
 }
 
-/* ⭐ main fix — image full show */
+/* IMPORTANT: layering */
+.page.active{ z-index:2; }
+.page.incoming{ z-index:3; }
+
+/* image full visible */
 .page img{
   width:100%;
   height:100%;
-  object-fit:contain; /* FULL image visible */
+  object-fit:contain; /* FULL image visible, no crop */
 }
 
-.page.anim{
-  transition:transform .45s cubic-bezier(.2,.8,.2,1);
+/* smooth animation when needed */
+.anim{
+  transition: transform .38s cubic-bezier(.2,.85,.2,1);
 }
 
 .hint{
@@ -108,7 +112,10 @@ button{
   left:0;
   right:0;
   text-align:center;
-  color:white;
+  color:rgba(255,255,255,.9);
+  font-size:14px;
+  text-shadow:0 6px 18px rgba(0,0,0,.6);
+  z-index:40;
 }
 </style>
 </head>
@@ -116,107 +123,255 @@ button{
 <body>
 
 <div class="topbar">
-<div class="pill">
-<button id="prevBtn">⬅ Prev</button>
-<button id="nextBtn">Next ➡</button>
-</div>
+  <div class="pill">
+    <button id="prevBtn">⬅ Prev</button>
+    <button id="nextBtn">Next ➡</button>
+  </div>
 </div>
 
 <div class="stage" id="stage">
-<div class="book">
-<div class="viewport">
-<div class="track">
-
-<div class="page" id="pageA">
-<img id="imgA">
+  <div class="book">
+    <div class="page active" id="pageA"><img id="imgA" alt=""></div>
+    <div class="page" id="pageB"><img id="imgB" alt=""></div>
+  </div>
 </div>
 
-<div class="page" id="pageB">
-<img id="imgB">
-</div>
-
-</div>
-</div>
-</div>
-</div>
-
-<div class="hint">Swipe / Drag left-right</div>
+<div class="hint">👆 Swipe / Drag left-right • Buttons also work</div>
 
 <script>
-const photos=[
-"a.jpg",
-"b.jpg",
-"c.jpg",
-"n.jpg",
-"m.jpg",
-"e.jpg",
-"f.jpg",
-"g.jpg"
+/* ✅ Photos list */
+const photos = [
+  "a.jpg","b.jpg","c.jpg","n.jpg","m.jpg","e.jpg","f.jpg","g.jpg"
 ];
 
-const stage=document.getElementById("stage");
+const stage = document.getElementById("stage");
+const bookW = () => stage.clientWidth;
 
-const pageA=document.getElementById("pageA");
-const pageB=document.getElementById("pageB");
+const pageA = document.getElementById("pageA");
+const pageB = document.getElementById("pageB");
+const imgA  = document.getElementById("imgA");
+const imgB  = document.getElementById("imgB");
 
-const imgA=document.getElementById("imgA");
-const imgB=document.getElementById("imgB");
+let index = 0;
+let isAnimating = false;
 
-let index=0;
-let isAnimating=false;
+let activePage = pageA, incomingPage = pageB;
+let activeImg  = imgA,  incomingImg  = imgB;
 
-let active=pageA;
-let incoming=pageB;
-
-let activeImg=imgA;
-let incomingImg=imgB;
-
-function setImg(el,i){
-  el.src=photos[i];
+/* helpers */
+function setImg(imgEl, i){
+  imgEl.src = photos[i];
 }
 
-function swap(){
-  [active,incoming]=[incoming,active];
-  [activeImg,incomingImg]=[incomingImg,activeImg];
+function setRoles(){
+  activePage.classList.add("active");
+  incomingPage.classList.remove("active");
+  incomingPage.classList.add("incoming");
+  activePage.classList.remove("incoming");
+}
+
+function hardResetTransforms(){
+  activePage.classList.remove("anim");
+  incomingPage.classList.remove("anim");
+  activePage.style.transform = "translateX(0)";
+  incomingPage.style.transform = "translateX(100%)"; // parked right
+}
+
+function swapBuffers(){
+  [activePage, incomingPage] = [incomingPage, activePage];
+  [activeImg,  incomingImg ] = [incomingImg,  activeImg ];
+  setRoles();
 }
 
 /* init */
-setImg(activeImg,index);
-incoming.style.transform="translateX(100%)";
+setImg(activeImg, index);
+incomingPage.style.transform = "translateX(100%)";
+setRoles();
 
-function slideTo(newIndex,dir){
+/* core slide */
+function slideTo(newIndex, dir){
+  // dir: +1 next, -1 prev
   if(isAnimating) return;
-  if(newIndex<0||newIndex>=photos.length) return;
+  if(newIndex < 0 || newIndex >= photos.length) return;
 
-  isAnimating=true;
+  isAnimating = true;
 
-  setImg(incomingImg,newIndex);
+  // prepare incoming
+  setImg(incomingImg, newIndex);
+  incomingPage.classList.add("incoming");
+  activePage.classList.add("active");
+  setRoles();
 
-  incoming.classList.remove("anim");
-  active.classList.remove("anim");
+  // start positions
+  incomingPage.classList.remove("anim");
+  activePage.classList.remove("anim");
 
-  incoming.style.transform=dir===1?"translateX(100%)":"translateX(-100%)";
-  incoming.offsetHeight;
+  incomingPage.style.transform = dir === 1 ? "translateX(100%)" : "translateX(-100%)";
+  activePage.style.transform   = "translateX(0)";
 
-  incoming.classList.add("anim");
-  active.classList.add("anim");
+  // reflow
+  incomingPage.offsetHeight;
 
-  incoming.style.transform="translateX(0)";
-  active.style.transform=dir===1?"translateX(-100%)":"translateX(100%)";
+  // animate
+  incomingPage.classList.add("anim");
+  activePage.classList.add("anim");
 
-  active.addEventListener("transitionend",()=>{
-    index=newIndex;
-    swap();
-    incoming.style.transform="translateX(100%)";
-    isAnimating=false;
-  },{once:true});
+  incomingPage.style.transform = "translateX(0)";
+  activePage.style.transform   = dir === 1 ? "translateX(-100%)" : "translateX(100%)";
+
+  const onDone = () => {
+    activePage.removeEventListener("transitionend", onDone);
+
+    index = newIndex;
+
+    // swap so new visible becomes active
+    swapBuffers();
+
+    // IMPORTANT: reset transforms so no middle/half gap bug
+    hardResetTransforms();
+
+    isAnimating = false;
+  };
+
+  activePage.addEventListener("transitionend", onDone, { once:true });
 }
 
-function goNext(){slideTo(index+1,1)}
-function goPrev(){slideTo(index-1,-1)}
+function goNext(){ slideTo(index + 1, +1); }
+function goPrev(){ slideTo(index - 1, -1); }
 
-nextBtn.onclick=goNext;
-prevBtn.onclick=goPrev;
+document.getElementById("nextBtn").addEventListener("click", goNext);
+document.getElementById("prevBtn").addEventListener("click", goPrev);
+
+/* ✅ Swipe / Drag (Pointer Events) */
+let dragging = false;
+let startX = 0;
+let lastX = 0;
+
+const SWIPE_THRESHOLD = 70;   // px
+const DRAG_LIMIT = 280;       // px
+
+function onDown(e){
+  if(isAnimating) return;
+  if(e.pointerType === "mouse" && e.button !== 0) return;
+
+  dragging = true;
+  startX = e.clientX;
+  lastX = startX;
+
+  stage.setPointerCapture?.(e.pointerId);
+
+  // remove transitions for live drag
+  activePage.classList.remove("anim");
+  incomingPage.classList.remove("anim");
+
+  // ensure clean base
+  activePage.style.transform = "translateX(0)";
+  incomingPage.style.transform = "translateX(100%)";
+}
+
+function onMove(e){
+  if(!dragging || isAnimating) return;
+
+  lastX = e.clientX;
+  let dx = lastX - startX;
+  dx = Math.max(-DRAG_LIMIT, Math.min(DRAG_LIMIT, dx));
+
+  const w = bookW();
+
+  if(dx < 0){
+    // dragging left => next
+    if(index >= photos.length - 1) return;
+
+    setImg(incomingImg, index + 1);
+    setRoles();
+
+    activePage.style.transform   = `translateX(${dx}px)`;
+    incomingPage.style.transform = `translateX(${dx + w}px)`;
+  } else if(dx > 0){
+    // dragging right => prev
+    if(index <= 0) return;
+
+    setImg(incomingImg, index - 1);
+    setRoles();
+
+    activePage.style.transform   = `translateX(${dx}px)`;
+    incomingPage.style.transform = `translateX(${dx - w}px)`;
+  }
+}
+
+function cancelDrag(){
+  activePage.classList.add("anim");
+  incomingPage.classList.add("anim");
+
+  activePage.style.transform = "translateX(0)";
+  incomingPage.style.transform = "translateX(100%)";
+
+  const clean = () => {
+    activePage.removeEventListener("transitionend", clean);
+    activePage.classList.remove("anim");
+    incomingPage.classList.remove("anim");
+  };
+  activePage.addEventListener("transitionend", clean, { once:true });
+}
+
+function commit(dir){
+  // dir: +1 next, -1 prev
+  isAnimating = true;
+
+  activePage.classList.add("anim");
+  incomingPage.classList.add("anim");
+
+  const w = bookW();
+  incomingPage.style.transform = "translateX(0)";
+  activePage.style.transform = dir === 1 ? `translateX(${-w}px)` : `translateX(${w}px)`;
+
+  const done = () => {
+    activePage.removeEventListener("transitionend", done);
+
+    index += dir;
+
+    swapBuffers();
+    hardResetTransforms();
+
+    isAnimating = false;
+  };
+
+  activePage.addEventListener("transitionend", done, { once:true });
+}
+
+function onUp(){
+  if(!dragging || isAnimating) return;
+  dragging = false;
+
+  const dx = lastX - startX;
+
+  if(dx <= -SWIPE_THRESHOLD && index < photos.length - 1){
+    setImg(incomingImg, index + 1);
+    setRoles();
+    commit(+1);
+    return;
+  }
+
+  if(dx >= SWIPE_THRESHOLD && index > 0){
+    setImg(incomingImg, index - 1);
+    setRoles();
+    commit(-1);
+    return;
+  }
+
+  cancelDrag();
+}
+
+stage.addEventListener("pointerdown", onDown);
+stage.addEventListener("pointermove", onMove);
+stage.addEventListener("pointerup", onUp);
+stage.addEventListener("pointercancel", onUp);
+
+window.addEventListener("resize", () => {
+  // keep layout stable on rotation
+  if(isAnimating) return;
+  hardResetTransforms();
+});
 </script>
 
 </body>
