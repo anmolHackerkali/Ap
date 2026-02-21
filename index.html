@@ -26,7 +26,6 @@ body{
   font-family:"Hind", sans-serif;
   overflow:hidden;
 
-  /* 📸 Album style background */
   background:
     radial-gradient(circle at 20% 20%, rgba(255,255,255,.08), transparent 40%),
     radial-gradient(circle at 80% 80%, rgba(255,255,255,.05), transparent 40%),
@@ -53,6 +52,7 @@ body{
   background:rgba(0,0,0,.4);
   padding:10px 15px;
   border-radius:50px;
+  backdrop-filter: blur(6px);
 }
 button{
   padding:8px 15px;
@@ -61,13 +61,18 @@ button{
   cursor:pointer;
   font-weight:bold;
 }
-button:hover{ opacity:.8 }
+button:hover{ opacity:.85 }
 
 /* Book */
 .stage{
   width:var(--w);
   height:var(--h);
   perspective:2000px;
+
+  /* ✅ swipe/drag ke liye */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .book{
@@ -112,12 +117,8 @@ button:hover{ opacity:.8 }
   background-repeat:no-repeat;
 }
 
-.left{
-  background-position:left center;
-}
-.right{
-  background-position:right center;
-}
+.left{ background-position:left center; }
+.right{ background-position:right center; }
 
 /* Flipping sheet */
 .sheet{
@@ -125,6 +126,7 @@ button:hover{ opacity:.8 }
   inset:0;
   transform-origin:left center;
   transform-style:preserve-3d;
+  will-change: transform;
 }
 
 .leaf{
@@ -143,9 +145,7 @@ button:hover{ opacity:.8 }
   background-size:200% 100%;
   background-repeat:no-repeat;
 }
-.side.front{
-  background-position:right center;
-}
+.side.front{ background-position:right center; }
 .side.back{
   transform:rotateY(180deg);
   background-position:left center;
@@ -166,7 +166,7 @@ button:hover{ opacity:.8 }
   </div>
 </div>
 
-<div class="stage">
+<div class="stage" id="stage">
   <div class="book">
     <div class="cover"></div>
 
@@ -180,19 +180,21 @@ button:hover{ opacity:.8 }
 </div>
 
 <script>
-/* 🖼️ Your images (2 pages = 1 full image) */
+/* 🖼️ Your images (1 image = 1 spread) */
 const photos = [
   "a.jpg",
   "n.jpg",
   "m.jpg"
 ];
 
+const stage = document.getElementById("stage");
 const pagesEl = document.getElementById("pages");
 const leftPage = document.getElementById("leftPage");
 const rightPage = document.getElementById("rightPage");
 
 let current = 0;
 const sheets = [];
+let isAnimating = false;
 
 /* Render base spread */
 function renderSpread(i){
@@ -202,7 +204,6 @@ function renderSpread(i){
 
 /* Create flip sheets */
 for(let i=0;i<photos.length;i++){
-
   const sheet = document.createElement("div");
   sheet.className="sheet";
   sheet.style.zIndex=1000-i;
@@ -226,27 +227,153 @@ for(let i=0;i<photos.length;i++){
   sheets.push(sheet);
 }
 
-function setAngle(i,angle,anim=false){
+function setAngle(i, angle, anim=false){
   if(!sheets[i]) return;
-  sheets[i].classList.toggle("anim",anim);
-  sheets[i].style.transform=`rotateY(${angle}deg)`;
+  sheets[i].classList.toggle("anim", anim);
+  sheets[i].style.transform = `rotateY(${angle}deg)`;
+}
+
+/* ✅ Next / Prev actions */
+function goNext(){
+  if(isAnimating) return;
+  if(current >= photos.length - 1) return;
+
+  isAnimating = true;
+  setAngle(current, -180, true);
+
+  // transition complete ke baad state update
+  const done = () => {
+    sheets[current].removeEventListener("transitionend", done);
+    current++;
+    renderSpread(current);
+    isAnimating = false;
+  };
+  sheets[current].addEventListener("transitionend", done, { once:true });
+}
+
+function goPrev(){
+  if(isAnimating) return;
+  if(current <= 0) return;
+
+  isAnimating = true;
+  current--;
+  setAngle(current, 0, true);
+
+  const done = () => {
+    sheets[current].removeEventListener("transitionend", done);
+    renderSpread(current);
+    isAnimating = false;
+  };
+  sheets[current].addEventListener("transitionend", done, { once:true });
 }
 
 /* Buttons */
-document.getElementById("nextBtn").onclick=()=>{
-  if(current>=photos.length-1) return;
-  setAngle(current,-180,true);
-  current++;
-  renderSpread(current);
-};
+document.getElementById("nextBtn").onclick = goNext;
+document.getElementById("prevBtn").onclick = goPrev;
 
-document.getElementById("prevBtn").onclick=()=>{
-  if(current<=0) return;
-  current--;
-  setAngle(current,0,true);
-  renderSpread(current);
-};
+/* ✅ Swipe / Drag Support (Touch + Mouse using Pointer Events) */
+let dragging = false;
+let startX = 0;
+let lastX = 0;
 
+const SWIPE_THRESHOLD = 70;   // px
+const EDGE_GUARD = 0.0;       // future use if needed
+
+function onPointerDown(e){
+  if(isAnimating) return;
+
+  // Left click only for mouse
+  if(e.pointerType === "mouse" && e.button !== 0) return;
+
+  dragging = true;
+  startX = e.clientX;
+  lastX = startX;
+
+  // Capture pointer so move works even if pointer leaves element
+  stage.setPointerCapture?.(e.pointerId);
+
+  // Disable transition during live drag
+  if(sheets[current]) sheets[current].classList.remove("anim");
+  if(current > 0 && sheets[current-1]) sheets[current-1].classList.remove("anim");
+}
+
+function onPointerMove(e){
+  if(!dragging || isAnimating) return;
+  lastX = e.clientX;
+
+  const dx = lastX - startX;
+
+  // dx < 0 => next (flip current sheet)
+  if(dx < 0 && current < photos.length - 1){
+    const progress = Math.max(-1, Math.min(0, dx / 260)); // -1..0
+    const angle = progress * 180; // 0..-180
+    setAngle(current, angle, false);
+  }
+
+  // dx > 0 => prev (unflip previous sheet)
+  if(dx > 0 && current > 0){
+    const progress = Math.max(0, Math.min(1, dx / 260)); // 0..1
+    const angle = -180 + (progress * 180); // -180..0
+    setAngle(current-1, angle, false);
+  }
+}
+
+function onPointerUp(e){
+  if(!dragging || isAnimating) return;
+  dragging = false;
+
+  const dx = lastX - startX;
+
+  // Decide based on threshold
+  if(dx <= -SWIPE_THRESHOLD){
+    // commit next
+    if(current < photos.length - 1){
+      // animate to -180
+      setAngle(current, -180, true);
+      isAnimating = true;
+
+      const done = () => {
+        sheets[current].removeEventListener("transitionend", done);
+        current++;
+        renderSpread(current);
+        isAnimating = false;
+      };
+      sheets[current].addEventListener("transitionend", done, { once:true });
+      return;
+    }
+  }
+
+  if(dx >= SWIPE_THRESHOLD){
+    // commit prev
+    if(current > 0){
+      setAngle(current-1, 0, true);
+      isAnimating = true;
+
+      const done = () => {
+        sheets[current-1].removeEventListener("transitionend", done);
+        renderSpread(current);
+        isAnimating = false;
+      };
+      sheets[current-1].addEventListener("transitionend", done, { once:true });
+      return;
+    }
+  }
+
+  // Otherwise cancel: snap back
+  if(dx < 0 && current < photos.length - 1){
+    setAngle(current, 0, true);
+  }
+  if(dx > 0 && current > 0){
+    setAngle(current-1, -180, true);
+  }
+}
+
+stage.addEventListener("pointerdown", onPointerDown);
+stage.addEventListener("pointermove", onPointerMove);
+stage.addEventListener("pointerup", onPointerUp);
+stage.addEventListener("pointercancel", onPointerUp);
+
+/* Initial */
 renderSpread(0);
 </script>
 
