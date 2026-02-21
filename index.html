@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Smooth Photo Viewer</title>
+<title>Ultra Smooth Photo Viewer</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -50,23 +50,21 @@ button{
   background:black;
   position:relative;
   overflow:hidden;
-  display:flex;
-  justify-content:center;
-  align-items:center;
+  touch-action:none;
 }
 
-/* images stacked */
+/* 2 image layers */
 .viewer img{
   position:absolute;
+  inset:0;
   width:100%;
   height:100%;
   object-fit:contain;
-  opacity:0;
-  transition:opacity .45s ease;
+  transition:opacity .35s ease, transform .2s ease;
 }
 
-/* visible layer */
-.show{opacity:1}
+.imgTop{opacity:1; z-index:2;}
+.imgBottom{opacity:0; z-index:1;}
 
 /* counter */
 .counter{
@@ -75,8 +73,9 @@ button{
   right:10px;
   color:white;
   background:rgba(0,0,0,.4);
-  padding:6px 12px;
+  padding:5px 12px;
   border-radius:20px;
+  z-index:5;
 }
 </style>
 </head>
@@ -86,37 +85,35 @@ button{
 <div class="topbar">
 <button id="prevBtn">⬅ Prev</button>
 <button id="nextBtn">Next ➡</button>
+<button id="fullscreenBtn">⛶ Full</button>
+<button id="autoBtn">▶ Auto</button>
 </div>
 
 <div class="viewer" id="viewer">
-<img id="imgA">
-<img id="imgB">
+<img id="img1" class="imgTop">
+<img id="img2" class="imgBottom">
 <div class="counter" id="counter"></div>
 </div>
 
 <script>
-/* photos */
 const photos=[
 "a.jpg","b.jpg","c.jpg","n.jpg","m.jpg","e.jpg","f.jpg","g.jpg"
 ];
 
 let index=0;
 
-const imgA=document.getElementById("imgA");
-const imgB=document.getElementById("imgB");
+const img1=document.getElementById("img1");
+const img2=document.getElementById("img2");
 const counter=document.getElementById("counter");
 
-let active=imgA;
-let nextImg=imgB;
+let active=img1;
+let incoming=img2;
 
-/* preload image first (KEY FIX) */
-function preload(src){
-  return new Promise(resolve=>{
-    const i=new Image();
-    i.src=src;
-    i.onload=()=>resolve(src);
-  });
-}
+/* preload images */
+photos.forEach(src=>{
+  const i=new Image();
+  i.src=src;
+});
 
 /* update counter */
 function updateCounter(){
@@ -124,23 +121,26 @@ function updateCounter(){
 }
 
 /* ultra smooth change */
-async function show(newIndex){
+function show(newIndex){
   if(newIndex<0||newIndex>=photos.length) return;
 
-  // preload next image first
-  const src=await preload(photos[newIndex]);
+  incoming.src=photos[newIndex];
 
-  nextImg.src=src;
+  // wait image load
+  incoming.onload=()=>{
+    incoming.style.opacity=1;
+    active.style.opacity=0;
 
-  // crossfade
-  nextImg.classList.add("show");
-  active.classList.remove("show");
+    setTimeout(()=>{
+      index=newIndex;
 
-  // swap layers
-  [active,nextImg]=[nextImg,active];
+      // swap layers
+      [active,incoming]=[incoming,active];
 
-  index=newIndex;
-  updateCounter();
+      incoming.style.opacity=0;
+      updateCounter();
+    },350);
+  };
 }
 
 function next(){show(index+1)}
@@ -161,12 +161,40 @@ viewer.addEventListener("pointerup",e=>{
   if(dx>60) prev();
 });
 
-/* first image load */
-imgA.src=photos[0];
-imgA.onload=()=>{
-  imgA.classList.add("show");
-  updateCounter();
+/* fullscreen */
+fullscreenBtn.onclick=()=>{
+  if(!document.fullscreenElement)
+    viewer.requestFullscreen();
+  else
+    document.exitFullscreen();
 };
+
+/* auto slideshow */
+let auto=false,timer;
+
+autoBtn.onclick=()=>{
+  auto=!auto;
+  autoBtn.textContent=auto?"⏸ Stop":"▶ Auto";
+
+  if(auto) timer=setInterval(next,2500);
+  else clearInterval(timer);
+};
+
+/* zoom */
+let scale=1,lastTap=0;
+
+viewer.addEventListener("pointerdown",()=>{
+  let now=Date.now();
+  if(now-lastTap<300){
+    scale=scale===1?2:1;
+    active.style.transform=`scale(${scale})`;
+  }
+  lastTap=now;
+});
+
+/* init */
+active.src=photos[index];
+updateCounter();
 </script>
 
 </body>
