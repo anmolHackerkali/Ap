@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Premium Photo Viewer</title>
+<title>Smooth Photo Viewer</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -24,7 +24,7 @@ body{
   background:linear-gradient(135deg,#3a2a1c,#2b1b0f);
 }
 
-/* top controls */
+/* controls */
 .topbar{
   position:fixed;
   top:12px;
@@ -48,21 +48,25 @@ button{
   width:var(--w);
   height:var(--h);
   background:black;
+  position:relative;
+  overflow:hidden;
   display:flex;
   justify-content:center;
   align-items:center;
-  overflow:hidden;
-  position:relative;
-  touch-action:none;
 }
 
-/* image */
+/* images stacked */
 .viewer img{
+  position:absolute;
   width:100%;
   height:100%;
   object-fit:contain;
-  transition:opacity .3s ease, transform .2s ease;
+  opacity:0;
+  transition:opacity .45s ease;
 }
+
+/* visible layer */
+.show{opacity:1}
 
 /* counter */
 .counter{
@@ -71,12 +75,9 @@ button{
   right:10px;
   color:white;
   background:rgba(0,0,0,.4);
-  padding:5px 12px;
+  padding:6px 12px;
   border-radius:20px;
 }
-
-/* fade */
-.fade{opacity:0}
 </style>
 </head>
 
@@ -85,12 +86,11 @@ button{
 <div class="topbar">
 <button id="prevBtn">⬅ Prev</button>
 <button id="nextBtn">Next ➡</button>
-<button id="fullscreenBtn">⛶ Full</button>
-<button id="autoBtn">▶ Auto</button>
 </div>
 
 <div class="viewer" id="viewer">
-<img id="photo">
+<img id="imgA">
+<img id="imgB">
 <div class="counter" id="counter"></div>
 </div>
 
@@ -101,25 +101,46 @@ const photos=[
 ];
 
 let index=0;
-const img=photo;
+
+const imgA=document.getElementById("imgA");
+const imgB=document.getElementById("imgB");
 const counter=document.getElementById("counter");
 
-/* update UI */
-function update(){
-  img.src=photos[index];
+let active=imgA;
+let nextImg=imgB;
+
+/* preload image first (KEY FIX) */
+function preload(src){
+  return new Promise(resolve=>{
+    const i=new Image();
+    i.src=src;
+    i.onload=()=>resolve(src);
+  });
+}
+
+/* update counter */
+function updateCounter(){
   counter.textContent=(index+1)+" / "+photos.length;
 }
 
-/* smooth change */
-function show(i){
-  if(i<0||i>=photos.length) return;
+/* ultra smooth change */
+async function show(newIndex){
+  if(newIndex<0||newIndex>=photos.length) return;
 
-  img.classList.add("fade");
-  setTimeout(()=>{
-    index=i;
-    update();
-    img.classList.remove("fade");
-  },150);
+  // preload next image first
+  const src=await preload(photos[newIndex]);
+
+  nextImg.src=src;
+
+  // crossfade
+  nextImg.classList.add("show");
+  active.classList.remove("show");
+
+  // swap layers
+  [active,nextImg]=[nextImg,active];
+
+  index=newIndex;
+  updateCounter();
 }
 
 function next(){show(index+1)}
@@ -127,28 +148,6 @@ function prev(){show(index-1)}
 
 nextBtn.onclick=next;
 prevBtn.onclick=prev;
-
-/* fullscreen */
-fullscreenBtn.onclick=()=>{
-  if(!document.fullscreenElement)
-    viewer.requestFullscreen();
-  else
-    document.exitFullscreen();
-};
-
-/* auto slideshow */
-let auto=false, timer=null;
-
-autoBtn.onclick=()=>{
-  auto=!auto;
-  autoBtn.textContent=auto?"⏸ Stop":"▶ Auto";
-
-  if(auto){
-    timer=setInterval(next,2500);
-  }else{
-    clearInterval(timer);
-  }
-};
 
 /* swipe */
 let startX=0;
@@ -162,45 +161,12 @@ viewer.addEventListener("pointerup",e=>{
   if(dx>60) prev();
 });
 
-/* zoom system */
-let scale=1;
-let startDist=0;
-
-/* double tap zoom */
-let lastTap=0;
-viewer.addEventListener("pointerdown",e=>{
-  let now=Date.now();
-  if(now-lastTap<300){
-    scale=scale===1?2:1;
-    img.style.transform=`scale(${scale})`;
-  }
-  lastTap=now;
-});
-
-/* pinch zoom mobile */
-viewer.addEventListener("touchstart",e=>{
-  if(e.touches.length===2){
-    startDist=getDist(e.touches);
-  }
-});
-
-viewer.addEventListener("touchmove",e=>{
-  if(e.touches.length===2){
-    let newDist=getDist(e.touches);
-    scale=newDist/startDist;
-    img.style.transform=`scale(${scale})`;
-  }
-});
-
-function getDist(t){
-  return Math.hypot(
-    t[0].clientX-t[1].clientX,
-    t[0].clientY-t[1].clientY
-  );
-}
-
-/* init */
-update();
+/* first image load */
+imgA.src=photos[0];
+imgA.onload=()=>{
+  imgA.classList.add("show");
+  updateCounter();
+};
 </script>
 
 </body>
