@@ -3,30 +3,25 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>Single Page Photo Album</title>
+<title>Photo Album Clean</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
 :root{
-  --w: min(92vw, 560px);
-  --h: min(78vh, 720px);
-  --radius: 18px;
+  --w:min(92vw,560px);
+  --h:min(78vh,720px);
 }
 
-*{ box-sizing:border-box; }
+*{box-sizing:border-box}
 
 body{
   margin:0;
   min-height:100vh;
   display:grid;
   place-items:center;
-  font-family:"Hind", sans-serif;
-  overflow:hidden;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(255,255,255,.08), transparent 40%),
-    radial-gradient(circle at 80% 80%, rgba(255,255,255,.05), transparent 40%),
-    linear-gradient(135deg,#3a2a1c,#2b1b0f);
+  font-family:Hind,sans-serif;
+  background:#2b1b0f;
 }
 
 /* controls */
@@ -37,85 +32,46 @@ body{
   right:0;
   display:flex;
   justify-content:center;
-  z-index:50;
 }
 .pill{
-  background:rgba(0,0,0,.45);
-  padding:10px 12px;
-  border-radius:999px;
-  display:flex;
-  gap:10px;
-  backdrop-filter: blur(8px);
-  box-shadow:0 12px 30px rgba(0,0,0,.25);
+  background:rgba(0,0,0,.4);
+  padding:10px 15px;
+  border-radius:50px;
 }
 button{
-  padding:8px 14px;
+  padding:8px 15px;
   border:none;
-  border-radius:999px;
+  border-radius:30px;
   cursor:pointer;
-  font-weight:700;
+  font-weight:bold;
 }
-button:active{ transform:scale(.98); }
 
-/* stage */
-.stage{
+/* viewer */
+.viewer{
   width:var(--w);
   height:var(--h);
-  perspective:1400px;
-  touch-action: pan-y;          /* allow vertical scroll, block horizontal by us */
-  user-select:none;
-  -webkit-user-select:none;
-}
-
-/* book */
-.book{
-  width:100%;
-  height:100%;
-  position:relative;
-  border-radius:var(--radius);
-  overflow:hidden;
-  box-shadow:0 40px 60px rgba(0,0,0,.55);
-  background:#000;
-}
-
-/* pages */
-.page{
-  position:absolute;
-  inset:0;
+  background:black;
   display:flex;
   justify-content:center;
   align-items:center;
-  background:#000;
-  will-change: transform;
-  transform: translateX(0);
+  overflow:hidden;
 }
 
-/* IMPORTANT: layering */
-.page.active{ z-index:2; }
-.page.incoming{ z-index:3; }
-
-/* image full visible */
-.page img{
+/* image */
+.viewer img{
   width:100%;
   height:100%;
-  object-fit:contain; /* FULL image visible, no crop */
+  object-fit:contain;
+  transition:opacity .35s ease;
 }
 
-/* smooth animation when needed */
-.anim{
-  transition: transform .38s cubic-bezier(.2,.85,.2,1);
-}
+.fadeout{opacity:0}
+.fadein{opacity:1}
 
 .hint{
   position:fixed;
-  bottom:16px;
-  left:0;
-  right:0;
-  text-align:center;
-  color:rgba(255,255,255,.9);
-  font-size:14px;
-  text-shadow:0 6px 18px rgba(0,0,0,.6);
-  z-index:40;
+  bottom:20px;
+  color:white;
 }
 </style>
 </head>
@@ -123,254 +79,74 @@ button:active{ transform:scale(.98); }
 <body>
 
 <div class="topbar">
-  <div class="pill">
-    <button id="prevBtn">⬅ Prev</button>
-    <button id="nextBtn">Next ➡</button>
-  </div>
+<div class="pill">
+<button id="prevBtn">⬅ Prev</button>
+<button id="nextBtn">Next ➡</button>
+</div>
 </div>
 
-<div class="stage" id="stage">
-  <div class="book">
-    <div class="page active" id="pageA"><img id="imgA" alt=""></div>
-    <div class="page" id="pageB"><img id="imgB" alt=""></div>
-  </div>
+<div class="viewer" id="viewer">
+<img id="photo">
 </div>
 
-<div class="hint">👆 Swipe / Drag left-right • Buttons also work</div>
+<div class="hint">Swipe / Drag left-right</div>
 
 <script>
-/* ✅ Photos list */
-const photos = [
-  "a.jpg","b.jpg","c.jpg","n.jpg","m.jpg","e.jpg","f.jpg","g.jpg"
+/* photos */
+const photos=[
+"a.jpg",
+"b.jpg",
+"c.jpg",
+"n.jpg",
+"m.jpg",
+"e.jpg",
+"f.jpg",
+"g.jpg"
 ];
 
-const stage = document.getElementById("stage");
-const bookW = () => stage.clientWidth;
+let index=0;
+const img=document.getElementById("photo");
 
-const pageA = document.getElementById("pageA");
-const pageB = document.getElementById("pageB");
-const imgA  = document.getElementById("imgA");
-const imgB  = document.getElementById("imgB");
+/* load first */
+img.src=photos[index];
 
-let index = 0;
-let isAnimating = false;
+/* change photo clean */
+function showPhoto(newIndex){
+  if(newIndex<0||newIndex>=photos.length) return;
 
-let activePage = pageA, incomingPage = pageB;
-let activeImg  = imgA,  incomingImg  = imgB;
+  img.classList.add("fadeout");
 
-/* helpers */
-function setImg(imgEl, i){
-  imgEl.src = photos[i];
+  setTimeout(()=>{
+    index=newIndex;
+    img.src=photos[index];
+    img.classList.remove("fadeout");
+  },200);
 }
 
-function setRoles(){
-  activePage.classList.add("active");
-  incomingPage.classList.remove("active");
-  incomingPage.classList.add("incoming");
-  activePage.classList.remove("incoming");
-}
+function next(){showPhoto(index+1)}
+function prev(){showPhoto(index-1)}
 
-function hardResetTransforms(){
-  activePage.classList.remove("anim");
-  incomingPage.classList.remove("anim");
-  activePage.style.transform = "translateX(0)";
-  incomingPage.style.transform = "translateX(100%)"; // parked right
-}
+nextBtn.onclick=next;
+prevBtn.onclick=prev;
 
-function swapBuffers(){
-  [activePage, incomingPage] = [incomingPage, activePage];
-  [activeImg,  incomingImg ] = [incomingImg,  activeImg ];
-  setRoles();
-}
+/* swipe / drag */
+let startX=0;
+let dragging=false;
+const THRESHOLD=60;
 
-/* init */
-setImg(activeImg, index);
-incomingPage.style.transform = "translateX(100%)";
-setRoles();
+viewer.addEventListener("pointerdown",e=>{
+  dragging=true;
+  startX=e.clientX;
+});
 
-/* core slide */
-function slideTo(newIndex, dir){
-  // dir: +1 next, -1 prev
-  if(isAnimating) return;
-  if(newIndex < 0 || newIndex >= photos.length) return;
+viewer.addEventListener("pointerup",e=>{
+  if(!dragging) return;
+  dragging=false;
 
-  isAnimating = true;
+  const dx=e.clientX-startX;
 
-  // prepare incoming
-  setImg(incomingImg, newIndex);
-  incomingPage.classList.add("incoming");
-  activePage.classList.add("active");
-  setRoles();
-
-  // start positions
-  incomingPage.classList.remove("anim");
-  activePage.classList.remove("anim");
-
-  incomingPage.style.transform = dir === 1 ? "translateX(100%)" : "translateX(-100%)";
-  activePage.style.transform   = "translateX(0)";
-
-  // reflow
-  incomingPage.offsetHeight;
-
-  // animate
-  incomingPage.classList.add("anim");
-  activePage.classList.add("anim");
-
-  incomingPage.style.transform = "translateX(0)";
-  activePage.style.transform   = dir === 1 ? "translateX(-100%)" : "translateX(100%)";
-
-  const onDone = () => {
-    activePage.removeEventListener("transitionend", onDone);
-
-    index = newIndex;
-
-    // swap so new visible becomes active
-    swapBuffers();
-
-    // IMPORTANT: reset transforms so no middle/half gap bug
-    hardResetTransforms();
-
-    isAnimating = false;
-  };
-
-  activePage.addEventListener("transitionend", onDone, { once:true });
-}
-
-function goNext(){ slideTo(index + 1, +1); }
-function goPrev(){ slideTo(index - 1, -1); }
-
-document.getElementById("nextBtn").addEventListener("click", goNext);
-document.getElementById("prevBtn").addEventListener("click", goPrev);
-
-/* ✅ Swipe / Drag (Pointer Events) */
-let dragging = false;
-let startX = 0;
-let lastX = 0;
-
-const SWIPE_THRESHOLD = 70;   // px
-const DRAG_LIMIT = 280;       // px
-
-function onDown(e){
-  if(isAnimating) return;
-  if(e.pointerType === "mouse" && e.button !== 0) return;
-
-  dragging = true;
-  startX = e.clientX;
-  lastX = startX;
-
-  stage.setPointerCapture?.(e.pointerId);
-
-  // remove transitions for live drag
-  activePage.classList.remove("anim");
-  incomingPage.classList.remove("anim");
-
-  // ensure clean base
-  activePage.style.transform = "translateX(0)";
-  incomingPage.style.transform = "translateX(100%)";
-}
-
-function onMove(e){
-  if(!dragging || isAnimating) return;
-
-  lastX = e.clientX;
-  let dx = lastX - startX;
-  dx = Math.max(-DRAG_LIMIT, Math.min(DRAG_LIMIT, dx));
-
-  const w = bookW();
-
-  if(dx < 0){
-    // dragging left => next
-    if(index >= photos.length - 1) return;
-
-    setImg(incomingImg, index + 1);
-    setRoles();
-
-    activePage.style.transform   = `translateX(${dx}px)`;
-    incomingPage.style.transform = `translateX(${dx + w}px)`;
-  } else if(dx > 0){
-    // dragging right => prev
-    if(index <= 0) return;
-
-    setImg(incomingImg, index - 1);
-    setRoles();
-
-    activePage.style.transform   = `translateX(${dx}px)`;
-    incomingPage.style.transform = `translateX(${dx - w}px)`;
-  }
-}
-
-function cancelDrag(){
-  activePage.classList.add("anim");
-  incomingPage.classList.add("anim");
-
-  activePage.style.transform = "translateX(0)";
-  incomingPage.style.transform = "translateX(100%)";
-
-  const clean = () => {
-    activePage.removeEventListener("transitionend", clean);
-    activePage.classList.remove("anim");
-    incomingPage.classList.remove("anim");
-  };
-  activePage.addEventListener("transitionend", clean, { once:true });
-}
-
-function commit(dir){
-  // dir: +1 next, -1 prev
-  isAnimating = true;
-
-  activePage.classList.add("anim");
-  incomingPage.classList.add("anim");
-
-  const w = bookW();
-  incomingPage.style.transform = "translateX(0)";
-  activePage.style.transform = dir === 1 ? `translateX(${-w}px)` : `translateX(${w}px)`;
-
-  const done = () => {
-    activePage.removeEventListener("transitionend", done);
-
-    index += dir;
-
-    swapBuffers();
-    hardResetTransforms();
-
-    isAnimating = false;
-  };
-
-  activePage.addEventListener("transitionend", done, { once:true });
-}
-
-function onUp(){
-  if(!dragging || isAnimating) return;
-  dragging = false;
-
-  const dx = lastX - startX;
-
-  if(dx <= -SWIPE_THRESHOLD && index < photos.length - 1){
-    setImg(incomingImg, index + 1);
-    setRoles();
-    commit(+1);
-    return;
-  }
-
-  if(dx >= SWIPE_THRESHOLD && index > 0){
-    setImg(incomingImg, index - 1);
-    setRoles();
-    commit(-1);
-    return;
-  }
-
-  cancelDrag();
-}
-
-stage.addEventListener("pointerdown", onDown);
-stage.addEventListener("pointermove", onMove);
-stage.addEventListener("pointerup", onUp);
-stage.addEventListener("pointercancel", onUp);
-
-window.addEventListener("resize", () => {
-  // keep layout stable on rotation
-  if(isAnimating) return;
-  hardResetTransforms();
+  if(dx<-THRESHOLD) next();
+  if(dx>THRESHOLD) prev();
 });
 </script>
 
