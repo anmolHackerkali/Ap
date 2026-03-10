@@ -9,7 +9,7 @@
 
 body{
 font-family:Arial;
-background:#f5f7fb;
+background:#eef3ff;
 margin:0;
 text-align:center;
 }
@@ -111,28 +111,47 @@ padding:10px 20px;
 cursor:pointer;
 }
 
-.result-page{
-width:794px;
-min-height:1123px;
+.result-card{
+text-align:left;
+padding:20px;
+border:2px solid #000;
+margin-top:20px;
+background:white;
+}
+
+/* A4 RESULT STYLE */
+
+.a4{
+width:210mm;
+min-height:297mm;
 margin:auto;
 background:white;
-padding:30px;
+padding:20px;
 box-shadow:0 0 15px rgba(0,0,0,0.2);
 }
 
-.result-box-field{
-border:1px solid #333;
-padding:10px;
-margin:8px;
-display:inline-block;
-width:45%;
-background:#f0f8ff;
+.result-grid{
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:15px;
+margin-top:20px;
 }
 
-.result-images img{
-width:180px;
-border:1px solid black;
-margin:10px;
+.box{
+border:1px solid #000;
+padding:10px;
+background:#f9f9f9;
+}
+
+.imgbox{
+border:1px solid #000;
+padding:10px;
+text-align:center;
+}
+
+.imgbox img{
+max-width:100%;
+height:auto;
 }
 
 .back-btn{
@@ -142,6 +161,18 @@ background:black;
 color:white;
 border:none;
 cursor:pointer;
+}
+
+@media(max-width:700px){
+
+.form-row{
+flex-direction:column;
+}
+
+.a4{
+width:100%;
+}
+
 }
 
 </style>
@@ -193,58 +224,51 @@ cursor:pointer;
 <label>Roll No *</label>
 <input id="rollNo" required>
 </div>
-
-<div class="form-group">
-<label>Student Name *</label>
-<input id="name" required>
-</div>
 </div>
 
 <div class="form-row">
+
 <div class="form-group">
-<label>Session</label>
-<select id="session">
+<label>Name *</label>
+<input id="name" required>
+</div>
+
+<div class="form-group">
+<label>Session *</label>
+<select id="session" required>
 <option>2024-25</option>
 <option>2025-26</option>
 </select>
 </div>
 
+</div>
+
+<div class="form-row">
+
 <div class="form-group">
-<label>Course</label>
-<select id="course">
+<label>Course *</label>
+<select id="course" required>
 <option>CCC</option>
 <option>DCA</option>
 <option>ADCA</option>
 <option>PGDCA</option>
 </select>
 </div>
+
+<div class="form-group">
+<label>Mobile *</label>
+<input id="mobile" required>
+</div>
+
 </div>
 
 <div class="form-row">
-<div class="form-group">
-<label>Mobile</label>
-<input id="mobile">
-</div>
 
 <div class="form-group">
 <label>Alternate Mobile</label>
-<input id="altmobile">
-</div>
-</div>
-
-<div class="form-row">
-<div class="form-group">
-<label>Email</label>
-<input id="email">
+<input id="altMobile">
 </div>
 
-<div class="form-group">
-<label>DOB</label>
-<input type="date" id="dob">
-</div>
-</div>
-
-<div class="form-row">
 <div class="form-group">
 <label>Gender</label>
 <select id="gender">
@@ -253,13 +277,33 @@ cursor:pointer;
 </select>
 </div>
 
+</div>
+
+<div class="form-row">
+
 <div class="form-group">
-<label>Address</label>
+<label>Email *</label>
+<input id="email">
+</div>
+
+<div class="form-group">
+<label>DOB *</label>
+<input type="date" id="dob">
+</div>
+
+</div>
+
+<div class="form-row">
+<div class="form-group">
+<label>Address *</label>
 <textarea id="address"></textarea>
 </div>
 </div>
 
+<h3>Upload Documents</h3>
+
 <div class="form-row">
+
 <div class="form-group">
 <label>Student Photo</label>
 <input type="file" id="photo">
@@ -274,6 +318,7 @@ cursor:pointer;
 <label>Aadhar Card</label>
 <input type="file" id="aadhar">
 </div>
+
 </div>
 
 <button class="submit-btn">SUBMIT</button>
@@ -292,20 +337,22 @@ cursor:pointer;
 
 <div class="container">
 
-<h2>Student Result Login</h2>
+<h2>Result Login</h2>
 
 <form id="searchForm">
 
 <div class="form-row">
+
 <div class="form-group">
 <label>Name</label>
-<input id="searchName">
+<input id="searchName" required>
 </div>
 
 <div class="form-group">
 <label>Roll No</label>
-<input id="searchRoll">
+<input id="searchRoll" required>
 </div>
+
 </div>
 
 <button class="submit-btn">LOGIN</button>
@@ -345,11 +392,19 @@ mainPage.style.display="block"
 }
 
 function fileToBase64(file){
-return new Promise(resolve=>{
+
+return new Promise((resolve,reject)=>{
+
 const reader=new FileReader()
-reader.onload=()=>resolve(reader.result)
+
 reader.readAsDataURL(file)
+
+reader.onload=()=>resolve(reader.result)
+
+reader.onerror=error=>reject(error)
+
 })
+
 }
 
 async function getData(){
@@ -359,6 +414,7 @@ headers:{ "X-Master-Key":API_KEY }
 })
 
 const data=await res.json()
+
 return data.record || []
 
 }
@@ -366,12 +422,16 @@ return data.record || []
 async function saveData(arr){
 
 await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
+
 method:"PUT",
+
 headers:{
 "Content-Type":"application/json",
 "X-Master-Key":API_KEY
 },
+
 body:JSON.stringify(arr)
+
 })
 
 }
@@ -381,23 +441,25 @@ studentForm.addEventListener("submit",async e=>{
 e.preventDefault()
 
 const photo=photo.files[0]?await fileToBase64(photo.files[0]):""
-const marks=marksheet.files[0]?await fileToBase64(marksheet.files[0]):""
-const adh=aadhar.files[0]?await fileToBase64(aadhar.files[0]):""
+const marksheet=marksheet.files[0]?await fileToBase64(marksheet.files[0]):""
+const aadhar=aadhar.files[0]?await fileToBase64(aadhar.files[0]):""
 
 const record={
+
 roll:rollNo.value,
 name:name.value,
 session:session.value,
 course:course.value,
 mobile:mobile.value,
-altmobile:altmobile.value,
+altMobile:altMobile.value,
+gender:gender.value,
 email:email.value,
 dob:dob.value,
-gender:gender.value,
 address:address.value,
 photo:photo,
-marks:marks,
-aadhar:adh
+marksheet:marksheet,
+aadhar:aadhar
+
 }
 
 const arr=await getData()
@@ -426,37 +488,41 @@ const roll=searchRoll.value.toLowerCase()
 const found=arr.find(r=>r.name.toLowerCase()==name && r.roll.toLowerCase()==roll)
 
 if(!found){
-resultOutput.innerHTML="Result Not Found"
+
+resultOutput.innerHTML="<div class='result-card'>Result Not Found</div>"
+
 return
+
 }
 
 resultOutput.innerHTML=`
 
-<div class="result-page">
+<div class="a4">
 
-<h2 style="text-align:center;color:blue">GVS COMPUTER CENTER</h2>
+<h2 style="text-align:center;color:#0077cc;">GVS COMPUTER CENTER RESULT</h2>
 
-<div class="result-box-field">Name : ${found.name}</div>
-<div class="result-box-field">Roll : ${found.roll}</div>
-<div class="result-box-field">Session : ${found.session}</div>
-<div class="result-box-field">Course : ${found.course}</div>
-<div class="result-box-field">Mobile : ${found.mobile}</div>
-<div class="result-box-field">Alt Mobile : ${found.altmobile}</div>
-<div class="result-box-field">Email : ${found.email}</div>
-<div class="result-box-field">DOB : ${found.dob}</div>
-<div class="result-box-field">Gender : ${found.gender}</div>
-<div class="result-box-field">Address : ${found.address}</div>
+<div class="result-grid">
 
-<div class="result-images">
+<div class="box"><b>Name</b><br>${found.name}</div>
+<div class="box"><b>Roll</b><br>${found.roll}</div>
+<div class="box"><b>Session</b><br>${found.session}</div>
+<div class="box"><b>Course</b><br>${found.course}</div>
+<div class="box"><b>Mobile</b><br>${found.mobile}</div>
+<div class="box"><b>Alt Mobile</b><br>${found.altMobile}</div>
+<div class="box"><b>Gender</b><br>${found.gender}</div>
+<div class="box"><b>Email</b><br>${found.email}</div>
+<div class="box"><b>DOB</b><br>${found.dob}</div>
+<div class="box"><b>Address</b><br>${found.address}</div>
 
-<h3>Student Photo</h3>
-<img src="${found.photo}">
+</div>
 
-<h3>Marksheet</h3>
-<img src="${found.marks}">
+<h3>Documents</h3>
 
-<h3>Aadhar Card</h3>
-<img src="${found.aadhar}">
+<div class="result-grid">
+
+<div class="imgbox"><b>Student Photo</b><br><img src="${found.photo}"></div>
+<div class="imgbox"><b>Marksheet</b><br><img src="${found.marksheet}"></div>
+<div class="imgbox"><b>Aadhar</b><br><img src="${found.aadhar}"></div>
 
 </div>
 
