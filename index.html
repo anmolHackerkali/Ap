@@ -460,6 +460,7 @@ async function enableResult() {
     const arr = await getData();
     if (arr.length > 0) {
         resultBtn.classList.remove("disabled");
+        resultBtn.onclick = openResultSearch;  // Ensure the button clicks works after enabling it
     }
 }
 
