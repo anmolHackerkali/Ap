@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-
 body {
     font-family: Arial;
     background: #f5f7fb;
@@ -152,7 +151,6 @@ input, select, textarea {
 .imgbox img {
     max-width: 100%;
 }
-
 </style>
 </head>
 
@@ -184,7 +182,6 @@ input, select, textarea {
 </div>
 
 <!-- FORM PAGE -->
-
 <div id="formPage">
     <button class="back-btn" onclick="goBack()">⬅ Back</button>
     <div class="container">
@@ -288,7 +285,6 @@ input, select, textarea {
 </div>
 
 <!-- RESULT SEARCH -->
-
 <div id="resultSearchPage">
     <button class="back-btn" onclick="goBack()">⬅ Back</button>
     <div class="container">
@@ -312,31 +308,35 @@ input, select, textarea {
 </div>
 
 <script>
-
 const API_KEY = "$2a$10$fI0WB3KfnTX380TiyE/uQuIwqgpr6EEFXElRz5tKxgRvjGXvv6XmO";
 const BIN_ID = "69afc241a967114c9ac0bf87";
 
+// Hide all pages
 function hideAll() {
     mainPage.style.display = "none";
     formPage.style.display = "none";
     resultSearchPage.style.display = "none";
 }
 
+// Show form page
 function openForm() {
     hideAll();
     formPage.style.display = "block";
 }
 
+// Show result page
 function openResultSearch() {
     hideAll();
     resultSearchPage.style.display = "block";
 }
 
+// Go back to the main page
 function goBack() {
     hideAll();
     mainPage.style.display = "block";
 }
 
+// Convert file to base64
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -346,6 +346,7 @@ function fileToBase64(file) {
     });
 }
 
+// Get data from JSON bin
 async function getData() {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
@@ -353,11 +354,12 @@ async function getData() {
         });
         const data = await res.json();
         return data.record || [];
-    } catch {
+    } catch (error) {
         return [];
     }
 }
 
+// Save data to JSON bin
 async function saveData(arr) {
     await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
         method: "PUT",
@@ -367,10 +369,10 @@ async function saveData(arr) {
         },
         body: JSON.stringify(arr)
     });
-
     enableResult();
 }
 
+// Submit form
 studentForm.addEventListener("submit", async function (e) {
     e.preventDefault();
 
@@ -381,11 +383,9 @@ studentForm.addEventListener("submit", async function (e) {
     if (document.getElementById("photo").files[0]) {
         photo = await fileToBase64(document.getElementById("photo").files[0]);
     }
-
     if (document.getElementById("marksheet").files[0]) {
         marksheet = await fileToBase64(document.getElementById("marksheet").files[0]);
     }
-
     if (document.getElementById("aadhar").files[0]) {
         aadhar = await fileToBase64(document.getElementById("aadhar").files[0]);
     }
@@ -414,6 +414,7 @@ studentForm.addEventListener("submit", async function (e) {
     studentForm.reset();
 });
 
+// Search result
 searchForm.addEventListener("submit", async function (e) {
     e.preventDefault();
 
@@ -454,6 +455,7 @@ searchForm.addEventListener("submit", async function (e) {
     `;
 });
 
+// Enable Result button if data is available
 async function enableResult() {
     const arr = await getData();
     if (arr.length > 0) {
