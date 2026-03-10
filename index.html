@@ -9,7 +9,7 @@
 
 body{
 font-family:Arial;
-background:#eef3ff;
+background:#f5f7fb;
 margin:0;
 text-align:center;
 }
@@ -111,15 +111,16 @@ padding:10px 20px;
 cursor:pointer;
 }
 
-.result-card{
-text-align:left;
-padding:20px;
-border:2px solid #000;
-margin-top:20px;
-background:white;
+.back-btn{
+margin:20px;
+padding:10px 20px;
+background:black;
+color:white;
+border:none;
+cursor:pointer;
 }
 
-/* A4 RESULT STYLE */
+/* RESULT STYLE */
 
 .a4{
 width:210mm;
@@ -127,10 +128,10 @@ min-height:297mm;
 margin:auto;
 background:white;
 padding:20px;
-box-shadow:0 0 15px rgba(0,0,0,0.2);
+box-shadow:0 0 10px rgba(0,0,0,0.2);
 }
 
-.result-grid{
+.grid{
 display:grid;
 grid-template-columns:repeat(2,1fr);
 gap:15px;
@@ -146,33 +147,10 @@ background:#f9f9f9;
 .imgbox{
 border:1px solid #000;
 padding:10px;
-text-align:center;
 }
 
 .imgbox img{
 max-width:100%;
-height:auto;
-}
-
-.back-btn{
-margin:20px;
-padding:10px 20px;
-background:black;
-color:white;
-border:none;
-cursor:pointer;
-}
-
-@media(max-width:700px){
-
-.form-row{
-flex-direction:column;
-}
-
-.a4{
-width:100%;
-}
-
 }
 
 </style>
@@ -227,7 +205,6 @@ width:100%;
 </div>
 
 <div class="form-row">
-
 <div class="form-group">
 <label>Name *</label>
 <input id="name" required>
@@ -235,19 +212,18 @@ width:100%;
 
 <div class="form-group">
 <label>Session *</label>
-<select id="session" required>
+<select id="session">
 <option>2024-25</option>
 <option>2025-26</option>
 </select>
 </div>
-
 </div>
 
 <div class="form-row">
 
 <div class="form-group">
 <label>Course *</label>
-<select id="course" required>
+<select id="course">
 <option>CCC</option>
 <option>DCA</option>
 <option>ADCA</option>
@@ -257,7 +233,7 @@ width:100%;
 
 <div class="form-group">
 <label>Mobile *</label>
-<input id="mobile" required>
+<input id="mobile">
 </div>
 
 </div>
@@ -282,12 +258,12 @@ width:100%;
 <div class="form-row">
 
 <div class="form-group">
-<label>Email *</label>
+<label>Email</label>
 <input id="email">
 </div>
 
 <div class="form-group">
-<label>DOB *</label>
+<label>DOB</label>
 <input type="date" id="dob">
 </div>
 
@@ -295,7 +271,7 @@ width:100%;
 
 <div class="form-row">
 <div class="form-group">
-<label>Address *</label>
+<label>Address</label>
 <textarea id="address"></textarea>
 </div>
 </div>
@@ -329,7 +305,7 @@ width:100%;
 
 </div>
 
-<!-- RESULT PAGE -->
+<!-- RESULT SEARCH -->
 
 <div id="resultSearchPage">
 
@@ -409,6 +385,8 @@ reader.onerror=error=>reject(error)
 
 async function getData(){
 
+try{
+
 const res=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{
 headers:{ "X-Master-Key":API_KEY }
 })
@@ -416,6 +394,12 @@ headers:{ "X-Master-Key":API_KEY }
 const data=await res.json()
 
 return data.record || []
+
+}catch{
+
+return []
+
+}
 
 }
 
@@ -436,13 +420,25 @@ body:JSON.stringify(arr)
 
 }
 
-studentForm.addEventListener("submit",async e=>{
+studentForm.addEventListener("submit",async function(e){
 
 e.preventDefault()
 
-const photo=photo.files[0]?await fileToBase64(photo.files[0]):""
-const marksheet=marksheet.files[0]?await fileToBase64(marksheet.files[0]):""
-const aadhar=aadhar.files[0]?await fileToBase64(aadhar.files[0]):""
+let photo=""
+let marksheet=""
+let aadhar=""
+
+if(document.getElementById("photo").files[0]){
+photo=await fileToBase64(document.getElementById("photo").files[0])
+}
+
+if(document.getElementById("marksheet").files[0]){
+marksheet=await fileToBase64(document.getElementById("marksheet").files[0])
+}
+
+if(document.getElementById("aadhar").files[0]){
+aadhar=await fileToBase64(document.getElementById("aadhar").files[0])
+}
 
 const record={
 
@@ -456,6 +452,7 @@ gender:gender.value,
 email:email.value,
 dob:dob.value,
 address:address.value,
+
 photo:photo,
 marksheet:marksheet,
 aadhar:aadhar
@@ -476,7 +473,7 @@ enableResult()
 
 })
 
-searchForm.addEventListener("submit",async e=>{
+searchForm.addEventListener("submit",async function(e){
 
 e.preventDefault()
 
@@ -489,7 +486,7 @@ const found=arr.find(r=>r.name.toLowerCase()==name && r.roll.toLowerCase()==roll
 
 if(!found){
 
-resultOutput.innerHTML="<div class='result-card'>Result Not Found</div>"
+resultOutput.innerHTML="<h3>Result Not Found</h3>"
 
 return
 
@@ -499,12 +496,12 @@ resultOutput.innerHTML=`
 
 <div class="a4">
 
-<h2 style="text-align:center;color:#0077cc;">GVS COMPUTER CENTER RESULT</h2>
+<h2 style="text-align:center;color:#0077cc;">GVS COMPUTER CENTER</h2>
 
-<div class="result-grid">
+<div class="grid">
 
 <div class="box"><b>Name</b><br>${found.name}</div>
-<div class="box"><b>Roll</b><br>${found.roll}</div>
+<div class="box"><b>Roll No</b><br>${found.roll}</div>
 <div class="box"><b>Session</b><br>${found.session}</div>
 <div class="box"><b>Course</b><br>${found.course}</div>
 <div class="box"><b>Mobile</b><br>${found.mobile}</div>
@@ -518,7 +515,7 @@ resultOutput.innerHTML=`
 
 <h3>Documents</h3>
 
-<div class="result-grid">
+<div class="grid">
 
 <div class="imgbox"><b>Student Photo</b><br><img src="${found.photo}"></div>
 <div class="imgbox"><b>Marksheet</b><br><img src="${found.marksheet}"></div>
